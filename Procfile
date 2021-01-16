@@ -1,0 +1,1 @@
+web: build/install/ical-filter/bin/ical-filter
