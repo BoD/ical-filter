@@ -27,19 +27,13 @@
 
 package org.jraf.icalfilter.main
 
-import io.ktor.application.call
-import io.ktor.application.install
-import io.ktor.features.DefaultHeaders
-import io.ktor.features.StatusPages
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.withCharset
-import io.ktor.response.respond
-import io.ktor.response.respondText
-import io.ktor.routing.get
-import io.ktor.routing.routing
-import io.ktor.server.engine.embeddedServer
-import io.ktor.server.netty.Netty
+import io.ktor.application.*
+import io.ktor.features.*
+import io.ktor.http.*
+import io.ktor.response.*
+import io.ktor.routing.*
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
 import org.jraf.icalfilter.core.IcalFilter
 import org.jraf.icalfilter.exceptions.IcalDownloadException
 import org.slf4j.LoggerFactory
@@ -66,7 +60,7 @@ suspend fun main() {
                     text = """
                         Get a filtered version of an iCal document. Only the events that match the filter will be kept.
 
-                        Usage: $APP_URL/<source url>/<comma separated filters>
+                        Usage: $APP_URL/<source url>/<comma separated filters>[/<comma separated filters>]
                         Example: $APP_URL/https%3A%2F%2Fwww.calendarlabs.com%2Fical-calendar%2Fics%2F45%2FFrance_Holidays.ics/easter,saints
                         
                         See https://github.com/BoD/ical-filter for more info.
@@ -84,11 +78,14 @@ suspend fun main() {
         }
 
         routing {
-            get("{$PATH_SOURCE_URL}/{$PATH_FILTER}") {
+            get("{$PATH_SOURCE_URL}/{$PATH_FILTER...}") {
                 val sourceUrl = call.parameters[PATH_SOURCE_URL]!!
-                val filter = call.parameters[PATH_FILTER]!!
-                val icalFilter = IcalFilter(sourceUrl, filter)
-                call.respondText(icalFilter.filtered(), ContentType("text", "calendar").withCharset(Charsets.UTF_8))
+                val filterSet = call.parameters.getAll(PATH_FILTER)!!
+                val icalFilter = IcalFilter(sourceUrl, filterSet)
+                call.respondText(
+                    icalFilter.filtered(),
+                    ContentType("text", "calendar").withCharset(Charsets.UTF_8)
+                )
             }
         }
     }.start(wait = true)

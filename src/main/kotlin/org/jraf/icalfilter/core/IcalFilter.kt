@@ -31,17 +31,29 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jraf.icalfilter.exceptions.IcalDownloadException
 import java.net.URL
-import java.util.Locale
+import java.util.*
+import java.util.concurrent.TimeUnit
 
 class IcalFilter(
     private val sourceUrl: String,
-    filter: String,
+    filterSet: List<String>,
 ) {
-    private val filterElements: List<String> = filter.split(',')
+    private val filterSet: List<List<String>> = filterSet.map { it.split(',') }
 
-    private fun String.isIncludedInFilter(): Boolean {
-        return filterElements.any { toLowerCase(Locale.US).contains(it.toLowerCase(Locale.US)) }
-    }
+    private fun String.matchesFilterSet(): Boolean =
+        filterSet.all { filter ->
+            filter.any { filterElement ->
+                matchesFilterElement(filterElement)
+            }
+        }
+
+    private fun String.matchesFilterElement(filterElement: String): Boolean =
+        if (filterElement.startsWith('!')) {
+            val elem = filterElement.drop(1)
+            !toLowerCase(Locale.US).contains(elem.toLowerCase(Locale.US))
+        } else {
+            toLowerCase(Locale.US).contains(filterElement.toLowerCase(Locale.US))
+        }
 
     private suspend fun downloadSource(): String = withContext(Dispatchers.IO) {
         try {
@@ -60,12 +72,15 @@ class IcalFilter(
         @Suppress("BlockingMethodInNonBlockingContext")
         val ical: ICalendar = Biweekly.parse(icalText).first()
 
-        // Remve events we're not interested in
+        // Remove events we're not interested in
         val iterator = ical.events.iterator()
         while (iterator.hasNext()) {
             val event = iterator.next()
             val eventSummary = event.summary.value
-            if (!eventSummary.isIncludedInFilter()) iterator.remove()
+            val filteredOut = !eventSummary.matchesFilterSet()
+            val tooOld =
+                System.currentTimeMillis() - event.dateStart.value.time > TimeUnit.DAYS.toMillis(7)
+            if (filteredOut || tooOld) iterator.remove()
         }
 
         // Serialize it
