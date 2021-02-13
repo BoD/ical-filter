@@ -31,7 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jraf.icalfilter.exceptions.IcalDownloadException
 import java.net.URL
-import java.util.*
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class IcalFilter(
